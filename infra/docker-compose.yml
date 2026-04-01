@@ -1,0 +1,47 @@
+﻿services:
+  postgres:
+    image: postgres:15
+    container_name: healthgame-postgres
+    environment:
+      POSTGRES_DB: healthgame
+      POSTGRES_USER: healthgame
+      POSTGRES_PASSWORD: healthgame
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: healthgame-redis
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ../backend
+    container_name: healthgame-backend
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/healthgame
+      DB_USERNAME: healthgame
+      DB_PASSWORD: healthgame
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: change-this-dev-secret-change-this-dev-secret
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ../frontend
+    container_name: healthgame-frontend
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+volumes:
+  postgres-data:
