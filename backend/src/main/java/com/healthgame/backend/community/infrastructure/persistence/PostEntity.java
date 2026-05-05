@@ -28,11 +28,23 @@ public class PostEntity {
     @Column(nullable = false, length = 16)
     private String visibility;
 
-    @Column(name = "image_url", length = 500)
+    @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
 
     @Column(name = "challenge_id")
     private Long challengeId;
+
+    @Column(name = "moderation_status", nullable = false, length = 16)
+    private String moderationStatus;
+
+    @Column(name = "moderated_by")
+    private Long moderatedBy;
+
+    @Column(name = "moderated_at")
+    private Instant moderatedAt;
+
+    @Column(name = "moderation_note", length = 500)
+    private String moderationNote;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -50,6 +62,14 @@ public class PostEntity {
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
     public Long getChallengeId() { return challengeId; }
     public void setChallengeId(Long challengeId) { this.challengeId = challengeId; }
+    public String getModerationStatus() { return moderationStatus; }
+    public void setModerationStatus(String moderationStatus) { this.moderationStatus = moderationStatus; }
+    public Long getModeratedBy() { return moderatedBy; }
+    public void setModeratedBy(Long moderatedBy) { this.moderatedBy = moderatedBy; }
+    public Instant getModeratedAt() { return moderatedAt; }
+    public void setModeratedAt(Instant moderatedAt) { this.moderatedAt = moderatedAt; }
+    public String getModerationNote() { return moderationNote; }
+    public void setModerationNote(String moderationNote) { this.moderationNote = moderationNote; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

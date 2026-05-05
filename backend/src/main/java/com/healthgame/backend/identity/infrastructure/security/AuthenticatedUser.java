@@ -11,7 +11,14 @@ public record AuthenticatedUser(
         Collection<? extends GrantedAuthority> authorities
 ) {
 
-    public static AuthenticatedUser user(Long userId, String email) {
-        return new AuthenticatedUser(userId, email, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+    public static AuthenticatedUser user(Long userId, String email, List<String> roleCodes) {
+        List<SimpleGrantedAuthority> mappedAuthorities = roleCodes == null || roleCodes.isEmpty()
+                ? List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                : roleCodes.stream().map(SimpleGrantedAuthority::new).toList();
+        return new AuthenticatedUser(userId, email, mappedAuthorities);
+    }
+
+    public boolean isAdmin() {
+        return authorities.stream().anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
     }
 }

@@ -4,10 +4,61 @@ export type UserProfile = {
   phone: string | null;
   nickname: string;
   firstName: string | null;
+  avatarUrl: string | null;
+  timezone: string;
+  status: string;
+  roles: string[];
+  registeredAt: string;
+  lastLoginAt: string | null;
+};
+
+
+export type DashboardSummary = {
+  level: number;
+  xp: number;
+  nextLevelXp: number;
+  dailyScore: number;
+  streakDays: number;
+  todayCompletedCount: number;
+  todayPlannedCount: number;
+  weeklyCompletedCount: number;
+  weeklyPlannedCount: number;
+  weeklyProgressPercent: number;
+  activeChallengesCount: number;
+  insight: string;
+};
+export type PublicUserProfile = {
+  id: number;
+  nickname: string;
+  firstName: string | null;
+  avatarUrl: string | null;
   timezone: string;
   status: string;
   registeredAt: string;
-  lastLoginAt: string | null;
+  activeHabits: number;
+  activeChallenges: number;
+  achievements: number;
+  level: number;
+  xp: number;
+  nextLevelXp: number;
+  streakDays: number;
+  totalCheckins: number;
+  challengeHistory: PublicUserChallenge[];
+};
+
+export type PublicUserChallenge = {
+  id: number;
+  name: string;
+  description: string | null;
+  status: string;
+  participantStatus: string;
+  participantRole: string;
+  startDate: string;
+  endDate: string;
+  goalValue: number;
+  participantCount: number;
+  coverImageUrl: string | null;
+  joinedAt: string;
 };
 
 export type HabitSchedule = {
@@ -104,6 +155,7 @@ export type Challenge = {
   endDate: string;
   goalType: string;
   goalValue: number;
+  xpReward: number;
   status: string;
   isPublic: boolean;
   currentUserParticipantStatus: string | null;
@@ -121,13 +173,21 @@ export type ChallengeDetails = Challenge & {
 };
 
 export type Achievement = {
+  /** ID строки награды user_achievements (уникален для списка) */
+  awardId?: number | null;
+  id?: number | null;
   code: string;
+  title?: string | null;
   name: string;
   description: string;
   icon: string | null;
   rarity: string;
-  awardedAt: string;
-  source: string;
+  unlocked?: boolean | null;
+  unlockedAt?: string | null;
+  awardedAt?: string | null;
+  source?: string | null;
+  progressCurrent?: number | null;
+  progressTarget?: number | null;
 };
 
 export type CommunityComment = {
@@ -135,7 +195,10 @@ export type CommunityComment = {
   authorId: number;
   authorName: string;
   authorNickname: string;
+  authorAvatarUrl: string | null;
   text: string;
+  moderationStatus: string;
+  moderationNote: string | null;
   createdAt: string;
   replies: CommunityComment[];
 };
@@ -145,13 +208,79 @@ export type CommunityPost = {
   authorId: number;
   authorName: string;
   authorNickname: string;
+  authorAvatarUrl: string | null;
   text: string;
   imageUrl: string | null;
   visibility: string;
+  moderationStatus: string;
+  moderationNote: string | null;
   createdAt: string;
   likeCount: number;
   likedByCurrentUser: boolean;
+  currentReaction: string | null;
+  reactionCounts: Record<string, number>;
   comments: CommunityComment[];
+};
+
+export type NotificationItem = {
+  id: number;
+  actorId: number | null;
+  type: string;
+  title: string;
+  message: string;
+  targetUrl: string | null;
+  isRead: boolean;
+  createdAt: string;
+  readAt: string | null;
+};
+
+export type UnreadNotificationCount = {
+  unreadCount: number;
+};
+
+export type GoogleCalendarEvent = {
+  title: string;
+  startAt: string;
+  allDay: boolean;
+  link: string | null;
+};
+
+export type GoogleCalendarAgenda = {
+  connected: boolean;
+  provider: string;
+  events: GoogleCalendarEvent[];
+  message: string;
+};
+
+export type GoogleCalendarSyncResult = {
+  connected: boolean;
+  createdCount: number;
+  skippedCount: number;
+  message: string;
+};
+
+export type GoogleCalendarConnection = {
+  connected: boolean;
+  message: string;
+};
+
+export type GoogleCalendarConnectLink = {
+  authorizationUrl: string;
+};
+
+export type WeatherWellness = {
+  city: string;
+  condition: string;
+  temperatureC: number;
+  apparentTemperatureC: number;
+  windSpeed: number;
+  humidity: number;
+  precipitation: number;
+  recommendations: Array<{
+    category: string;
+    title: string;
+    text: string;
+  }>;
 };
 
 export type PageResponse<T> = {
@@ -168,4 +297,3 @@ export type AuthResponse = {
   accessTokenExpiresInSeconds: number;
   refreshTokenExpiresInSeconds: number;
 };
-

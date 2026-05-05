@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ChallengeProgressRepository extends JpaRepository<ChallengeProgressEntity, ChallengeProgressId> {
     Optional<ChallengeProgressEntity> findByChallengeIdAndUserId(Long challengeId, Long userId);
     List<ChallengeProgressEntity> findByChallengeIdInAndUserId(List<Long> challengeIds, Long userId);
+    long countByUserIdAndCompletedAtIsNotNull(Long userId);
 }

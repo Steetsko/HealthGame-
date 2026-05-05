@@ -1,6 +1,7 @@
 package com.healthgame.backend.identity.application;
 
 import java.time.Instant;
+import java.util.List;
 
 public record CurrentUserResponse(
         Long id,
@@ -8,9 +9,11 @@ public record CurrentUserResponse(
         String phone,
         String nickname,
         String firstName,
+        String avatarUrl,
         String timezone,
         String status,
         Instant registeredAt,
-        Instant lastLoginAt
+        Instant lastLoginAt,
+        List<String> roles
 ) {
 }

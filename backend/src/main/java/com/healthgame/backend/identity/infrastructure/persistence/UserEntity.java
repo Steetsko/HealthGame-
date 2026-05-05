@@ -31,6 +31,9 @@ public class UserEntity {
     @Column(name = "first_name", length = 100)
     private String firstName;
 
+    @Column(name = "avatar_url", columnDefinition = "TEXT")
+    private String avatarUrl;
+
     @Column(nullable = false, length = 64)
     private String timezone;
 
@@ -54,6 +57,8 @@ public class UserEntity {
     public void setNickname(String nickname) { this.nickname = nickname; }
     public String getFirstName() { return firstName; }
     public void setFirstName(String firstName) { this.firstName = firstName; }
+    public String getAvatarUrl() { return avatarUrl; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
     public String getTimezone() { return timezone; }
     public void setTimezone(String timezone) { this.timezone = timezone; }
     public String getStatus() { return status; }

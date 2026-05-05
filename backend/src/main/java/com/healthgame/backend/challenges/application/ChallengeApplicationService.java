@@ -1,6 +1,9 @@
 package com.healthgame.backend.challenges.application;
 
 import com.healthgame.backend.achievements.application.AchievementApplicationService;
+import com.healthgame.backend.achievements.application.events.ChallengeJoinedEvent;
+import com.healthgame.backend.shared.audit.AuditAction;
+import com.healthgame.backend.shared.audit.AuditTrailService;
 import com.healthgame.backend.challenges.infrastructure.persistence.ChallengeEntity;
 import com.healthgame.backend.challenges.infrastructure.persistence.ChallengeParticipantEntity;
 import com.healthgame.backend.challenges.infrastructure.persistence.ChallengeParticipantRepository;
@@ -31,12 +34,17 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ChallengeApplicationService {
+
+    private static final Logger log = LoggerFactory.getLogger(ChallengeApplicationService.class);
 
     private final ChallengeRepository challengeRepository;
     private final ChallengeParticipantRepository challengeParticipantRepository;
@@ -47,6 +55,8 @@ public class ChallengeApplicationService {
     private final HabitCategoryRepository habitCategoryRepository;
     private final AchievementApplicationService achievementApplicationService;
     private final ChallengeProgressService challengeProgressService;
+    private final ApplicationEventPublisher eventPublisher;
+    private final AuditTrailService auditTrailService;
 
     public ChallengeApplicationService(
             ChallengeRepository challengeRepository,
@@ -57,7 +67,9 @@ public class ChallengeApplicationService {
             HabitRepository habitRepository,
             HabitCategoryRepository habitCategoryRepository,
             AchievementApplicationService achievementApplicationService,
-            ChallengeProgressService challengeProgressService
+            ChallengeProgressService challengeProgressService,
+            ApplicationEventPublisher eventPublisher,
+            AuditTrailService auditTrailService
     ) {
         this.challengeRepository = challengeRepository;
         this.challengeParticipantRepository = challengeParticipantRepository;
@@ -68,6 +80,8 @@ public class ChallengeApplicationService {
         this.habitCategoryRepository = habitCategoryRepository;
         this.achievementApplicationService = achievementApplicationService;
         this.challengeProgressService = challengeProgressService;
+        this.eventPublisher = eventPublisher;
+        this.auditTrailService = auditTrailService;
     }
 
     public Page<ChallengeSummaryResponse> listChallenges(AuthenticatedUser authenticatedUser, String scope, Pageable pageable) {
@@ -101,6 +115,7 @@ public class ChallengeApplicationService {
                 challenge.getEndDate(),
                 challenge.getGoalType(),
                 challenge.getGoalValue(),
+                challenge.getXpReward(),
                 challenge.getStatus(),
                 challenge.isPublic(),
                 currentParticipants.containsKey(challenge.getId()) ? currentParticipants.get(challenge.getId()).getParticipantStatus() : null,
@@ -126,8 +141,10 @@ public class ChallengeApplicationService {
         challenge.setEndDate(request.endDate());
         challenge.setGoalType(goalType);
         challenge.setGoalValue(request.goalValue());
+        challenge.setXpReward(request.xpReward());
         challenge.setPublic(Boolean.TRUE.equals(request.isPublic()));
         challenge.setCoverImageUrl(request.coverImageUrl());
+        challenge.setModerationStatus("VISIBLE");
         challenge.setStatus(resolveInitialStatus(user.getTimezone(), request.startDate()));
 
         ChallengeEntity saved = challengeRepository.save(challenge);
@@ -144,6 +161,8 @@ public class ChallengeApplicationService {
         challengeParticipantRepository.save(organizer);
 
         challengeProgressService.recalculateProgress(saved.getId(), authenticatedUser.userId());
+        achievementApplicationService.awardChallengeCreator(authenticatedUser.userId());
+        log.info("Challenge created: challengeId={}, creatorId={}", saved.getId(), authenticatedUser.userId());
         return buildDetails(saved, authenticatedUser.userId());
     }
 
@@ -212,7 +231,7 @@ public class ChallengeApplicationService {
             participant.setJoinedAt(now);
             challengeParticipantRepository.save(participant);
             challengeProgressService.recalculateProgress(challengeId, authenticatedUser.userId());
-            achievementApplicationService.awardChallengeJoiner(authenticatedUser.userId());
+            eventPublisher.publishEvent(new ChallengeJoinedEvent(authenticatedUser.userId()));
         } else {
             participant.setParticipantStatus("DECLINED");
             participant.setRespondedAt(now);
@@ -222,8 +241,13 @@ public class ChallengeApplicationService {
         return buildDetails(challenge, authenticatedUser.userId());
     }
 
+    @AuditAction(value = "Присоединение к челленджу", domain = "CHALLENGES")
     @Transactional
     public ChallengeDetailsResponse joinChallenge(AuthenticatedUser authenticatedUser, Long challengeId) {
+        return auditTrailService.execute(this, "joinChallenge", () -> doJoinChallenge(authenticatedUser, challengeId));
+    }
+
+    private ChallengeDetailsResponse doJoinChallenge(AuthenticatedUser authenticatedUser, Long challengeId) {
         ChallengeEntity challenge = challengeRepository.findById(challengeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Challenge was not found"));
         if (!challenge.isPublic()) {
@@ -248,7 +272,8 @@ public class ChallengeApplicationService {
         challengeParticipantRepository.save(participant);
 
         challengeProgressService.recalculateProgress(challengeId, authenticatedUser.userId());
-        achievementApplicationService.awardChallengeJoiner(authenticatedUser.userId());
+        eventPublisher.publishEvent(new ChallengeJoinedEvent(authenticatedUser.userId()));
+        log.info("Challenge joined: challengeId={}, userId={}", challengeId, authenticatedUser.userId());
         return buildDetails(challenge, authenticatedUser.userId());
     }
 
@@ -270,6 +295,7 @@ public class ChallengeApplicationService {
         challengeParticipantRepository.save(participant);
         challengeProgressRepository.findByChallengeIdAndUserId(challengeId, authenticatedUser.userId())
                 .ifPresent(challengeProgressRepository::delete);
+        log.info("Challenge left: challengeId={}, userId={}", challengeId, authenticatedUser.userId());
     }
 
     @Transactional
@@ -283,16 +309,36 @@ public class ChallengeApplicationService {
         List<ChallengeEntity> challenges = challengeRepository.findAllById(challengeIds);
 
         for (ChallengeEntity challenge : challenges) {
-            if (!"ACTIVE".equals(challenge.getStatus())) {
+            String status = normalizeChallengeStatus(challenge.getStatus());
+            if ("CANCELLED".equals(status)) {
                 continue;
             }
             if (checkin.getCheckinDate().isBefore(challenge.getStartDate()) || checkin.getCheckinDate().isAfter(challenge.getEndDate())) {
                 continue;
             }
+            if ("DRAFT".equals(status)) {
+                challenge.setStatus("ACTIVE");
+                challengeRepository.save(challenge);
+            } else if (!"ACTIVE".equals(status)) {
+                continue;
+            }
             if (challengeProgressService.matchesChallenge(challenge.getId(), habit)) {
+                boolean wasCompleted = challengeProgressRepository.findByChallengeIdAndUserId(challenge.getId(), userId)
+                        .map(progress -> progress.getCompletedAt() != null)
+                        .orElse(false);
                 challengeProgressService.recalculateProgress(challenge.getId(), userId);
+                boolean isCompleted = challengeProgressRepository.findByChallengeIdAndUserId(challenge.getId(), userId)
+                        .map(progress -> progress.getCompletedAt() != null)
+                        .orElse(false);
+                if (!wasCompleted && isCompleted) {
+                    achievementApplicationService.awardChallengeCompletion(userId);
+                }
             }
         }
+    }
+
+    private static String normalizeChallengeStatus(String status) {
+        return status == null ? "" : status.trim().toUpperCase();
     }
 
     private ChallengeEntity getAccessibleChallenge(Long userId, Long challengeId) {
@@ -320,33 +366,33 @@ public class ChallengeApplicationService {
                 .orElse(null);
         ChallengeProgressEntity currentProgress = challengeProgressRepository.findByChallengeIdAndUserId(challenge.getId(), currentUserId).orElse(null);
 
-        return new ChallengeDetailsResponse(
-                challenge.getId(),
-                challenge.getCreatorId(),
-                challenge.getName(),
-                challenge.getDescription(),
-                challenge.getStartDate(),
-                challenge.getEndDate(),
-                challenge.getGoalType(),
-                challenge.getGoalValue(),
-                challenge.getStatus(),
-                challenge.isPublic(),
-                currentParticipant != null ? currentParticipant.getParticipantStatus() : null,
-                currentParticipant != null ? currentParticipant.getParticipantRole() : null,
-                challenge.getCoverImageUrl(),
-                buildTargetResponses(targetEntities),
-                buildParticipantResponses(challenge.getId()),
-                currentProgress != null
+        return new ChallengeDetailsResponseBuilder()
+                .id(challenge.getId())
+                .creatorId(challenge.getCreatorId())
+                .name(challenge.getName())
+                .description(challenge.getDescription())
+                .startDate(challenge.getStartDate())
+                .endDate(challenge.getEndDate())
+                .goalType(challenge.getGoalType())
+                .goalValue(challenge.getGoalValue())
+                .xpReward(challenge.getXpReward())
+                .status(challenge.getStatus())
+                .isPublic(challenge.isPublic())
+                .currentUserParticipantStatus(currentParticipant != null ? currentParticipant.getParticipantStatus() : null)
+                .currentUserParticipantRole(currentParticipant != null ? currentParticipant.getParticipantRole() : null)
+                .coverImageUrl(challenge.getCoverImageUrl())
+                .targets(buildTargetResponses(targetEntities))
+                .participants(buildParticipantResponses(challenge.getId()))
+                .currentUserProgress(currentProgress != null
                         ? new ChallengeProgressResponse(currentProgress.getCurrentValue(), currentProgress.getCompletionPercent(), currentProgress.getLastCheckinDate(), currentProgress.getCompletedAt())
-                        : new ChallengeProgressResponse(0, zeroPercent(), null, null)
-        );
+                        : new ChallengeProgressResponse(0, zeroPercent(), null, null))
+                .build();
     }
 
     @Transactional
     public void deleteChallenge(AuthenticatedUser authenticatedUser, Long challengeId) {
         ChallengeEntity challenge = challengeRepository.findById(challengeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Challenge was not found"));
-        // Удалять может только создатель/организатор.
         if (!challenge.getCreatorId().equals(authenticatedUser.userId())) {
             ChallengeParticipantEntity participant = challengeParticipantRepository.findByChallengeIdAndUserId(challengeId, authenticatedUser.userId())
                     .orElseThrow(() -> new ConflictException("Only challenge organizer can delete a challenge"));
@@ -451,3 +497,6 @@ public class ChallengeApplicationService {
         return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
     }
 }
+
+
+

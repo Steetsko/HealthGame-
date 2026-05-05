@@ -8,6 +8,8 @@ public interface ChallengeParticipantRepository extends JpaRepository<ChallengeP
     List<ChallengeParticipantEntity> findByChallengeId(Long challengeId);
     List<ChallengeParticipantEntity> findByChallengeIdIn(List<Long> challengeIds);
     List<ChallengeParticipantEntity> findByChallengeIdInAndUserId(List<Long> challengeIds, Long userId);
+    List<ChallengeParticipantEntity> findByUserId(Long userId);
     List<ChallengeParticipantEntity> findByUserIdAndParticipantStatus(Long userId, String participantStatus);
     Optional<ChallengeParticipantEntity> findByChallengeIdAndUserId(Long challengeId, Long userId);
+    long countByUserIdAndParticipantStatus(Long userId, String participantStatus);
 }

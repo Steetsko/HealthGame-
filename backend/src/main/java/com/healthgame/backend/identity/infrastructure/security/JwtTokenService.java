@@ -48,6 +48,18 @@ public class JwtTokenService {
                 .compact();
     }
 
+    public String createGoogleConnectToken(Long userId, String redirectPath) {
+        Instant now = clock.instant();
+        return Jwts.builder()
+                .issuer(properties.issuer())
+                .subject(String.valueOf(userId))
+                .claims(Map.of("type", "google_connect", "redirectPath", redirectPath))
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusSeconds(600)))
+                .signWith(signingKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
     public Long extractUserId(String token) {
         return Long.valueOf(parseClaims(token).getSubject());
     }
@@ -58,6 +70,10 @@ public class JwtTokenService {
 
     public String extractEmail(String token) {
         return parseClaims(token).get("email", String.class);
+    }
+
+    public String extractRedirectPath(String token) {
+        return parseClaims(token).get("redirectPath", String.class);
     }
 
     public Instant extractExpiration(String token) {

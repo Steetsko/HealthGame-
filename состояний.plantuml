@@ -1,0 +1,48 @@
+@startuml
+title Диаграмма состояний участия пользователя в челлендже
+
+top to bottom direction
+hide empty description
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam monochrome true
+skinparam defaultFontName "Times New Roman"
+skinparam dpi 180
+
+skinparam state {
+    BackgroundColor white
+    BorderColor black
+    FontColor black
+    StartColor black
+    EndColor black
+}
+
+state "Не участвует" as NotJoined
+state "Участвует" as Joined
+
+state "Активное участие" as Active
+Active : do / выполнение привычек
+Active : do / фиксация отметок дня
+Active : do / обновление прогресса
+Active : do / проверка цели челленджа
+
+state "Челлендж завершен" as Completed
+state "Награда получена" as Rewarded
+state "Покинул челлендж" as Left
+
+[*] --> NotJoined
+NotJoined --> Joined : присоединиться
+
+Joined --> Active : старт челленджа
+
+Active --> Completed : цель достигнута
+Active --> Left : выйти из челленджа
+Joined --> Left : выйти до старта
+
+Completed --> Rewarded : начислить XP\nи достижение
+
+Rewarded --> [*]
+Left --> [*]
+
+@enduml

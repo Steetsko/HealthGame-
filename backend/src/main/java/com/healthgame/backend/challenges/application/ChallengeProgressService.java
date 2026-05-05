@@ -1,5 +1,7 @@
 package com.healthgame.backend.challenges.application;
 
+import com.healthgame.backend.challenges.application.progress.ChallengeGoalProgressStrategyFactory;
+import com.healthgame.backend.challenges.application.progress.ChallengeTargetMatchingStrategyFactory;
 import com.healthgame.backend.challenges.infrastructure.persistence.ChallengeEntity;
 import com.healthgame.backend.challenges.infrastructure.persistence.ChallengeProgressEntity;
 import com.healthgame.backend.challenges.infrastructure.persistence.ChallengeProgressRepository;
@@ -29,25 +31,31 @@ public class ChallengeProgressService {
     private final ChallengeProgressRepository challengeProgressRepository;
     private final HabitRepository habitRepository;
     private final HabitCheckinRepository habitCheckinRepository;
+    private final ChallengeGoalProgressStrategyFactory goalStrategyFactory;
+    private final ChallengeTargetMatchingStrategyFactory targetStrategyFactory;
 
     public ChallengeProgressService(
             ChallengeRepository challengeRepository,
             ChallengeTargetRepository challengeTargetRepository,
             ChallengeProgressRepository challengeProgressRepository,
             HabitRepository habitRepository,
-            HabitCheckinRepository habitCheckinRepository
+            HabitCheckinRepository habitCheckinRepository,
+            ChallengeGoalProgressStrategyFactory goalStrategyFactory,
+            ChallengeTargetMatchingStrategyFactory targetStrategyFactory
     ) {
         this.challengeRepository = challengeRepository;
         this.challengeTargetRepository = challengeTargetRepository;
         this.challengeProgressRepository = challengeProgressRepository;
         this.habitRepository = habitRepository;
         this.habitCheckinRepository = habitCheckinRepository;
+        this.goalStrategyFactory = goalStrategyFactory;
+        this.targetStrategyFactory = targetStrategyFactory;
     }
 
     public boolean matchesChallenge(Long challengeId, HabitEntity habit) {
         return challengeTargetRepository.findByChallengeId(challengeId)
                 .stream()
-                .anyMatch(target -> targetMatchesHabit(target, habit));
+                .anyMatch(target -> targetStrategyFactory.get(target.getTargetKind()).matches(target, habit));
     }
 
     public void recalculateProgress(Long challengeId, Long userId) {
@@ -81,46 +89,20 @@ public class ChallengeProgressService {
         challengeProgressRepository.save(progress);
     }
 
-    private boolean targetMatchesHabit(ChallengeTargetEntity target, HabitEntity habit) {
-        return switch (target.getTargetKind()) {
-            case "HABIT" -> target.getHabitId() != null && target.getHabitId().equals(habit.getId());
-            case "CATEGORY" -> target.getCategoryId() != null && target.getCategoryId().equals(habit.getCategoryId());
-            case "UNIT" -> target.getUnit() != null && target.getUnit().equalsIgnoreCase(habit.getUnit());
-            default -> false;
-        };
-    }
-
     private List<Long> resolveMatchedHabitIds(List<ChallengeTargetEntity> targets, List<HabitEntity> userHabits) {
         Set<Long> matched = new HashSet<>();
         for (ChallengeTargetEntity target : targets) {
-            switch (target.getTargetKind()) {
-                case "HABIT" -> {
-                    if (target.getHabitId() != null && userHabits.stream().anyMatch(habit -> habit.getId().equals(target.getHabitId()))) {
-                        matched.add(target.getHabitId());
-                    }
-                }
-                case "CATEGORY" -> userHabits.stream()
-                        .filter(habit -> target.getCategoryId() != null && target.getCategoryId().equals(habit.getCategoryId()))
-                        .map(HabitEntity::getId)
-                        .forEach(matched::add);
-                case "UNIT" -> userHabits.stream()
-                        .filter(habit -> target.getUnit() != null && target.getUnit().equalsIgnoreCase(habit.getUnit()))
-                        .map(HabitEntity::getId)
-                        .forEach(matched::add);
-                default -> {
-                }
-            }
+            userHabits.stream()
+                    .filter(habit -> targetStrategyFactory.get(target.getTargetKind()).matches(target, habit))
+                    .map(HabitEntity::getId)
+                    .forEach(matched::add);
         }
         return new ArrayList<>(matched);
     }
 
     private ProgressSnapshot buildProgressSnapshot(ChallengeEntity challenge, List<HabitCheckinEntity> checkins) {
-        int currentValue = switch (challenge.getGoalType()) {
-            case "SUM_VALUE" -> checkins.stream().mapToInt(HabitCheckinEntity::getValue).sum();
-            case "DAYS_COUNT" -> (int) checkins.stream().map(HabitCheckinEntity::getCheckinDate).distinct().count();
-            case "STREAK" -> calculateLongestStreak(checkins.stream().map(HabitCheckinEntity::getCheckinDate).distinct().sorted().toList());
-            default -> 0;
-        };
+        String goalType = challenge.getGoalType() == null ? "" : challenge.getGoalType().trim().toUpperCase();
+        int currentValue = goalStrategyFactory.get(goalType).calculateCurrentValue(checkins);
 
         BigDecimal completionPercent = BigDecimal.valueOf(currentValue)
                 .multiply(BigDecimal.valueOf(100))
@@ -138,23 +120,6 @@ public class ChallengeProgressService {
                 : null;
 
         return new ProgressSnapshot(currentValue, completionPercent, lastCheckinDate, completedAt);
-    }
-
-    private int calculateLongestStreak(List<LocalDate> dates) {
-        if (dates.isEmpty()) {
-            return 0;
-        }
-        int longest = 1;
-        int current = 1;
-        for (int index = 1; index < dates.size(); index++) {
-            if (dates.get(index - 1).plusDays(1).equals(dates.get(index))) {
-                current++;
-                longest = Math.max(longest, current);
-            } else {
-                current = 1;
-            }
-        }
-        return longest;
     }
 
     private BigDecimal zeroPercent() {

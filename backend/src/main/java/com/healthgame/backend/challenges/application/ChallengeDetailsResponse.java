@@ -12,6 +12,7 @@ public record ChallengeDetailsResponse(
         LocalDate endDate,
         String goalType,
         Integer goalValue,
+        Integer xpReward,
         String status,
         boolean isPublic,
         String currentUserParticipantStatus,

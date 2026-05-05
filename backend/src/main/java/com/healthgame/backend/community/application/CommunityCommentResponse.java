@@ -8,7 +8,10 @@ public record CommunityCommentResponse(
         Long authorId,
         String authorName,
         String authorNickname,
+        String authorAvatarUrl,
         String text,
+        String moderationStatus,
+        String moderationNote,
         Instant createdAt,
         List<CommunityCommentResponse> replies
 ) {

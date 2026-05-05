@@ -1,6 +1,9 @@
 package com.healthgame.backend.habits.application;
 
 import com.healthgame.backend.achievements.application.AchievementApplicationService;
+import com.healthgame.backend.achievements.application.events.HabitCheckinCreatedEvent;
+import com.healthgame.backend.shared.audit.AuditAction;
+import com.healthgame.backend.shared.audit.AuditTrailService;
 import com.healthgame.backend.challenges.application.ChallengeApplicationService;
 import com.healthgame.backend.habits.infrastructure.persistence.HabitCategoryEntity;
 import com.healthgame.backend.habits.infrastructure.persistence.HabitCategoryRepository;
@@ -13,6 +16,7 @@ import com.healthgame.backend.habits.infrastructure.persistence.HabitScheduleRep
 import com.healthgame.backend.identity.infrastructure.persistence.UserEntity;
 import com.healthgame.backend.identity.infrastructure.persistence.UserRepository;
 import com.healthgame.backend.identity.infrastructure.security.AuthenticatedUser;
+import com.healthgame.backend.notifications.application.NotificationApplicationService;
 import com.healthgame.backend.shared.domain.ConflictException;
 import com.healthgame.backend.shared.domain.ResourceNotFoundException;
 import jakarta.transaction.Transactional;
@@ -26,12 +30,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 @Service
 public class HabitApplicationService {
+
+    private static final Logger log = LoggerFactory.getLogger(HabitApplicationService.class);
 
     private final HabitRepository habitRepository;
     private final HabitCategoryRepository habitCategoryRepository;
@@ -40,6 +49,9 @@ public class HabitApplicationService {
     private final UserRepository userRepository;
     private final ChallengeApplicationService challengeApplicationService;
     private final AchievementApplicationService achievementApplicationService;
+    private final NotificationApplicationService notificationApplicationService;
+    private final ApplicationEventPublisher eventPublisher;
+    private final AuditTrailService auditTrailService;
 
     public HabitApplicationService(
             HabitRepository habitRepository,
@@ -48,7 +60,10 @@ public class HabitApplicationService {
             HabitCheckinRepository habitCheckinRepository,
             UserRepository userRepository,
             ChallengeApplicationService challengeApplicationService,
-            AchievementApplicationService achievementApplicationService
+            AchievementApplicationService achievementApplicationService,
+            NotificationApplicationService notificationApplicationService,
+            ApplicationEventPublisher eventPublisher,
+            AuditTrailService auditTrailService
     ) {
         this.habitRepository = habitRepository;
         this.habitCategoryRepository = habitCategoryRepository;
@@ -57,6 +72,9 @@ public class HabitApplicationService {
         this.userRepository = userRepository;
         this.challengeApplicationService = challengeApplicationService;
         this.achievementApplicationService = achievementApplicationService;
+        this.notificationApplicationService = notificationApplicationService;
+        this.eventPublisher = eventPublisher;
+        this.auditTrailService = auditTrailService;
     }
 
     public Page<HabitResponse> listHabits(AuthenticatedUser authenticatedUser, Pageable pageable) {
@@ -84,6 +102,7 @@ public class HabitApplicationService {
 
         HabitEntity saved = habitRepository.save(habit);
         List<HabitScheduleEntity> schedules = replaceSchedules(saved.getId(), request.schedules());
+        log.info("Habit created: habitId={}, userId={}", saved.getId(), authenticatedUser.userId());
         return toHabitResponse(saved, category, schedules);
     }
 
@@ -111,7 +130,6 @@ public class HabitApplicationService {
         UserEntity user = userRepository.findById(authenticatedUser.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("Authenticated user was not found"));
         int normalizedDays = Math.max(1, Math.min(days, 14));
-        // Возвращаем ближайшие дни ПЛЮС текущий день, а не прошлые.
         LocalDate startDate = LocalDate.now(ZoneId.of(user.getTimezone()));
         LocalDate endDate = startDate.plusDays(normalizedDays - 1L);
 
@@ -132,10 +150,10 @@ public class HabitApplicationService {
 
     @Transactional
     public void deleteHabit(AuthenticatedUser authenticatedUser, Long habitId) {
-        // Проверяем владение привычкой, чтобы нельзя было удалить чужую.
         HabitEntity habit = habitRepository.findByIdAndUserId(habitId, authenticatedUser.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("Habit was not found"));
         habitRepository.delete(habit);
+        log.info("Habit deleted: habitId={}, userId={}", habitId, authenticatedUser.userId());
     }
 
     public List<TodayHabitResponse> getTodayHabits(AuthenticatedUser authenticatedUser) {
@@ -178,8 +196,13 @@ public class HabitApplicationService {
                 .toList();
     }
 
+    @AuditAction(value = "Создание отметки выполнения привычки", domain = "HABITS")
     @Transactional
     public HabitCheckinResponse createCheckin(AuthenticatedUser authenticatedUser, Long habitId, HabitCheckinRequest request) {
+        return auditTrailService.execute(this, "createCheckin", () -> doCreateCheckin(authenticatedUser, habitId, request));
+    }
+
+    private HabitCheckinResponse doCreateCheckin(AuthenticatedUser authenticatedUser, Long habitId, HabitCheckinRequest request) {
         HabitEntity habit = getOwnedHabit(authenticatedUser, habitId);
         if (habitCheckinRepository.existsByHabitIdAndCheckinDate(habitId, request.checkinDate())) {
             throw new ConflictException("Check-in for this habit and date already exists");
@@ -204,8 +227,12 @@ public class HabitApplicationService {
         checkin.setCreatedAt(Instant.now());
 
         HabitCheckinEntity saved = habitCheckinRepository.save(checkin);
+        habitCheckinRepository.flush();
         challengeApplicationService.handleHabitCheckinCreated(authenticatedUser.userId(), habit, saved);
-        achievementApplicationService.awardFirstCheckin(authenticatedUser.userId());
+        eventPublisher.publishEvent(new HabitCheckinCreatedEvent(authenticatedUser.userId()));
+        achievementApplicationService.refreshHabitMilestones(authenticatedUser.userId());
+        notificationApplicationService.notifyXpGained(authenticatedUser.userId(), 10, "/dashboard");
+        log.info("Habit check-in created: habitId={}, userId={}, checkinId={}", habitId, authenticatedUser.userId(), saved.getId());
         return new HabitCheckinResponse(saved.getId(), saved.getHabitId(), saved.getCheckinDate(), saved.getValue(), saved.getComment(), saved.getSource(), saved.getCreatedAt());
     }
 
@@ -354,3 +381,6 @@ public class HabitApplicationService {
                 .toList();
     }
 }
+
+
+

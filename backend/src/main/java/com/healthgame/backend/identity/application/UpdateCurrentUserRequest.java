@@ -9,6 +9,7 @@ public record UpdateCurrentUserRequest(
         @NotBlank @Size(min = 3, max = 64) String nickname,
         @NotBlank String phone,
         @NotBlank @Size(min = 1, max = 100) String firstName,
-        @NotBlank @Size(min = 1, max = 64) String timezone
+        @NotBlank @Size(min = 1, max = 64) String timezone,
+        @Size(max = 2000000) String avatarUrl
 ) {
 }

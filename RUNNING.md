@@ -1,4 +1,4 @@
-﻿# Запуск проекта HealthGame
+# Запуск проекта HealthGame
 
 Этот файл описывает, что нужно установить и как пошагово запустить проект.
 
@@ -118,6 +118,26 @@ jdbc:postgresql://postgres:5432/healthgame
 
 Перед запуском команд убедитесь, что Docker Desktop действительно открыт и полностью стартовал.
 
+### Шаг 1.1. Создать файл переменных окружения
+
+В папке `infra` создайте файл `.env` на основе шаблона:
+
+```powershell
+cd "d:\Универ\3 курс\6 семестр\курсач рис\game\infra"
+copy .env.example .env
+```
+
+После этого откройте `infra/.env` и заполните:
+
+- `JWT_SECRET`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+
+Для Google Cloud redirect URI должен быть таким:
+
+```text
+http://localhost:8080/login/oauth2/code/google
+```
 ### Шаг 2. Перейти в папку с docker-compose
 
 ```powershell
@@ -384,3 +404,45 @@ docker compose up --build
 То есть инструкция запуска уже актуальна для инфраструктуры и каркаса проекта.
 
 Когда будут добавляться новые модули, способ запуска останется тем же.
+
+## 11. Как включить вход через Google
+
+В проект добавлена OAuth2 / OpenID Connect интеграция с Google.
+
+Что уже реализовано:
+
+- вход через Google на странице логина
+- выдача локальной JWT-пары после успешной авторизации Google
+- сохранение внешней интеграции в БД
+- чтение ближайших событий из Google Calendar
+
+### Что нужно сделать в Google Cloud Console
+
+1. Создать OAuth Client ID для Web application
+2. Добавить redirect URI:
+
+```text
+http://localhost:8080/login/oauth2/code/google
+```
+
+3. Скопировать значения:
+
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+
+### Как передать настройки локально
+
+Для Docker Compose используются переменные:
+
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `FRONTEND_BASE_URL`
+
+По умолчанию в `infra/docker-compose.yml` стоят заглушки. Перед демонстрацией их нужно заменить на реальные значения.
+
+### Что проверить после запуска
+
+1. Открыть `http://localhost:5173/login`
+2. Нажать `Войти через Google`
+3. После успешного входа убедиться, что произошел переход в приложение
+4. Открыть `Настройки` и проверить блок Google Calendar

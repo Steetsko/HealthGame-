@@ -14,11 +14,15 @@ import com.healthgame.backend.shared.domain.ResourceNotFoundException;
 import io.jsonwebtoken.JwtException;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AuthApplicationService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthApplicationService.class);
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -67,6 +71,7 @@ public class AuthApplicationService {
 
         UserEntity saved = userRepository.save(entity);
         userRoleJdbcRepository.assignDefaultUserRole(saved.getId());
+        log.info("User registered successfully: userId={}, email={}", saved.getId(), saved.getEmail());
         return new RegisteredUserResponse(saved.getId(), saved.getEmail(), saved.getNickname(), saved.getTimezone());
     }
 
@@ -78,9 +83,22 @@ public class AuthApplicationService {
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new ConflictException("Invalid credentials");
         }
+        if (!"active".equalsIgnoreCase(user.getStatus())) {
+            throw new ConflictException("User account is blocked or inactive");
+        }
 
         user.setLastLoginAt(Instant.now());
+        log.info("User login completed: userId={}", user.getId());
         return issueTokenPair(user, null, null);
+    }
+
+    @Transactional
+    public AuthResponse issueExternalLoginTokens(UserEntity user, String deviceInfo, String userAgent) {
+        if (!"active".equalsIgnoreCase(user.getStatus())) {
+            throw new ConflictException("User account is blocked or inactive");
+        }
+        user.setLastLoginAt(Instant.now());
+        return issueTokenPair(user, deviceInfo, userAgent);
     }
 
     @Transactional
@@ -100,6 +118,7 @@ public class AuthApplicationService {
                 .orElseThrow(() -> new ResourceNotFoundException("User for refresh token was not found"));
 
         storedToken.setRevokedAt(Instant.now());
+        log.info("Refresh token rotated: userId={}", user.getId());
         return issueTokenPair(user, storedToken.getDeviceInfo(), storedToken.getUserAgent());
     }
 
@@ -114,6 +133,7 @@ public class AuthApplicationService {
         }
 
         token.setRevokedAt(Instant.now());
+        log.info("User logout completed: userId={}", authenticatedUser.userId());
     }
 
     private AuthResponse issueTokenPair(UserEntity user, String deviceInfo, String userAgent) {

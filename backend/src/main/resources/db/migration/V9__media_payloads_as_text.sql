@@ -1,0 +1,5 @@
+ALTER TABLE users
+    ALTER COLUMN avatar_url TYPE TEXT;
+
+ALTER TABLE posts
+    ALTER COLUMN image_url TYPE TEXT;

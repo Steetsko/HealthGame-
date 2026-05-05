@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface UserAchievementRepository extends JpaRepository<UserAchievementEntity, Long> {
     List<UserAchievementEntity> findByUserIdOrderByAwardedAtDesc(Long userId);
     Optional<UserAchievementEntity> findByUserIdAndAchievementId(Long userId, Integer achievementId);
+    long countByUserId(Long userId);
 }

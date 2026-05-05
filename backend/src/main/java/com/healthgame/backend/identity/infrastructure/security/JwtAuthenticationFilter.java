@@ -1,10 +1,14 @@
 package com.healthgame.backend.identity.infrastructure.security;
 
+import com.healthgame.backend.identity.infrastructure.persistence.UserEntity;
+import com.healthgame.backend.identity.infrastructure.persistence.UserRepository;
+import com.healthgame.backend.identity.infrastructure.persistence.UserRoleJdbcRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.List;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,9 +22,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtTokenService jwtTokenService;
+    private final UserRepository userRepository;
+    private final UserRoleJdbcRepository userRoleJdbcRepository;
 
-    public JwtAuthenticationFilter(JwtTokenService jwtTokenService) {
+    public JwtAuthenticationFilter(
+            JwtTokenService jwtTokenService,
+            UserRepository userRepository,
+            UserRoleJdbcRepository userRoleJdbcRepository
+    ) {
         this.jwtTokenService = jwtTokenService;
+        this.userRepository = userRepository;
+        this.userRoleJdbcRepository = userRoleJdbcRepository;
     }
 
     @Override
@@ -40,10 +52,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         if (SecurityContextHolder.getContext().getAuthentication() == null) {
-            AuthenticatedUser principal = AuthenticatedUser.user(
-                    jwtTokenService.extractUserId(token),
-                    jwtTokenService.extractEmail(token)
-            );
+            Long userId = jwtTokenService.extractUserId(token);
+            UserEntity user = userRepository.findById(userId).orElse(null);
+            if (user == null || !"active".equalsIgnoreCase(user.getStatus())) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            List<String> roles = userRoleJdbcRepository.findRoleCodesByUserId(userId);
+            AuthenticatedUser principal = AuthenticatedUser.user(userId, user.getEmail(), roles);
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     principal,
                     null,

@@ -18,6 +18,19 @@ spring:
       port: ${REDIS_PORT:6379}
       repositories:
         enabled: false
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:google-client-id-placeholder}
+            client-secret: ${GOOGLE_CLIENT_SECRET:google-client-secret-placeholder}
+            scope:
+              - openid
+              - profile
+              - email
+              - https://www.googleapis.com/auth/calendar.events
+              - https://www.googleapis.com/auth/calendar.readonly
 app:
   security:
     jwt:
@@ -25,6 +38,8 @@ app:
       access-token-expiration: PT15M
       refresh-token-expiration: P14D
       secret: ${JWT_SECRET:change-this-dev-secret-change-this-dev-secret-change-this-dev-secret}
+  frontend:
+    base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
 server:
   port: ${SERVER_PORT:8080}
 management:

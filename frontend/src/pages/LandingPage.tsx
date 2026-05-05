@@ -8,7 +8,7 @@ const featureCards = [
   },
   {
     title: "Челленджи",
-    text: "Подключайтесь к публичным маршрутам роста или создавайте свои, чтобы держать темп вместе с друзьями и участниками сообщества."
+    text: "Подключайтесь к публичным челленджам роста или создавайте свои, чтобы держать темп вместе с друзьями и участниками сообщества."
   },
   {
     title: "Достижения",
@@ -47,7 +47,7 @@ export function LandingPage() {
       <article className="landing-hero landing-hero-rich">
         <div className="landing-copy">
           <p className="app-kicker">Цифровая система личного роста</p>
-          <h1>Сервис, который помогает закреплять полезные привычки и видеть их реальный вес в повседневной жизни.</h1>
+          <h1>Пространство, в котором привычки превращаются в устойчивый личный ритм.</h1>
           <p>
             HealthGame объединяет личные привычки, план на день, челленджи, достижения и социальный ритм в одном пространстве.
             Это не просто трекер, а рабочая среда, в которой ежедневные усилия превращаются в заметный результат.
@@ -61,21 +61,21 @@ export function LandingPage() {
         <div className="landing-scene">
           <div className="landing-scene-card landing-scene-card-main">
             <p className="app-kicker">Ритм дня</p>
-            <strong>Каждый день должен быть понятным, а не хаотичным.</strong>
-            <span>План, привычки, активные челленджи и прогресс собираются в одной картине дня.</span>
+            <strong>Ритм дня начинается с ясной картинки: что важно сегодня и как это влияет на неделю.</strong>
+            <span>План на сегодня, прогресс привычек и участие в челленджах собираются в одном визуальном контуре.</span>
           </div>
           <div className="landing-scene-grid">
             <div className="landing-scene-card">
-              <strong>12</strong>
-              <span>дней серии</span>
+              <strong>Серии</strong>
+              <span>поддержка ритма</span>
             </div>
             <div className="landing-scene-card">
-              <strong>4</strong>
-              <span>активные цели</span>
+              <strong>Челленджи</strong>
+              <span>совместный рост</span>
             </div>
             <div className="landing-scene-card">
-              <strong>89%</strong>
-              <span>стабильность недели</span>
+              <strong>Прогресс</strong>
+              <span>просмотр аналитики</span>
             </div>
           </div>
         </div>
@@ -86,7 +86,7 @@ export function LandingPage() {
           <div className="card-head-inline">
             <div>
               <p className="app-kicker">Как это работает</p>
-              <h2>Понятный маршрут от старта до устойчивого результата</h2>
+              <h2>Понятный путь от старта до устойчивого результата</h2>
             </div>
           </div>
           <div className="step-stack">

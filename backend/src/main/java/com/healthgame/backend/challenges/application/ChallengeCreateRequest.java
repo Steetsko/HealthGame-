@@ -17,8 +17,9 @@ public record ChallengeCreateRequest(
         @NotNull @FutureOrPresent LocalDate endDate,
         @NotBlank String goalType,
         @NotNull @Positive Integer goalValue,
+        @NotNull @Positive Integer xpReward,
         Boolean isPublic,
-        @Size(max = 500) String coverImageUrl,
+        @Size(max = 2_000_000) String coverImageUrl,
         @Valid @NotEmpty List<ChallengeTargetRequest> targets
 ) {
 }

@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.time.LocalDate;
 
 @Entity
@@ -36,14 +37,29 @@ public class ChallengeEntity {
     @Column(name = "goal_value", nullable = false)
     private Integer goalValue;
 
+    @Column(name = "xp_reward", nullable = false)
+    private Integer xpReward;
+
     @Column(nullable = false, length = 16)
     private String status;
 
     @Column(name = "is_public", nullable = false)
     private boolean isPublic;
 
-    @Column(name = "cover_image_url", length = 500)
+    @Column(name = "cover_image_url")
     private String coverImageUrl;
+
+    @Column(name = "moderation_status", nullable = false, length = 16)
+    private String moderationStatus;
+
+    @Column(name = "moderated_by")
+    private Long moderatedBy;
+
+    @Column(name = "moderated_at")
+    private Instant moderatedAt;
+
+    @Column(name = "moderation_note", length = 500)
+    private String moderationNote;
 
     public Long getId() { return id; }
     public Long getCreatorId() { return creatorId; }
@@ -60,11 +76,20 @@ public class ChallengeEntity {
     public void setGoalType(String goalType) { this.goalType = goalType; }
     public Integer getGoalValue() { return goalValue; }
     public void setGoalValue(Integer goalValue) { this.goalValue = goalValue; }
+    public Integer getXpReward() { return xpReward; }
+    public void setXpReward(Integer xpReward) { this.xpReward = xpReward; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     public boolean isPublic() { return isPublic; }
     public void setPublic(boolean aPublic) { isPublic = aPublic; }
-
     public String getCoverImageUrl() { return coverImageUrl; }
     public void setCoverImageUrl(String coverImageUrl) { this.coverImageUrl = coverImageUrl; }
+    public String getModerationStatus() { return moderationStatus; }
+    public void setModerationStatus(String moderationStatus) { this.moderationStatus = moderationStatus; }
+    public Long getModeratedBy() { return moderatedBy; }
+    public void setModeratedBy(Long moderatedBy) { this.moderatedBy = moderatedBy; }
+    public Instant getModeratedAt() { return moderatedAt; }
+    public void setModeratedAt(Instant moderatedAt) { this.moderatedAt = moderatedAt; }
+    public String getModerationNote() { return moderationNote; }
+    public void setModerationNote(String moderationNote) { this.moderationNote = moderationNote; }
 }

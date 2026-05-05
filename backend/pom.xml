@@ -30,6 +30,8 @@
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-security</artifactId></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-validation</artifactId></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
+        <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-websocket</artifactId></dependency>
+        <dependency><groupId>io.micrometer</groupId><artifactId>micrometer-registry-prometheus</artifactId></dependency>
         <dependency><groupId>org.flywaydb</groupId><artifactId>flyway-core</artifactId></dependency>
         <dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><scope>runtime</scope></dependency>
         <dependency><groupId>org.springdoc</groupId><artifactId>springdoc-openapi-starter-webmvc-ui</artifactId><version>${springdoc.version}</version></dependency>
@@ -39,6 +41,7 @@
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-configuration-processor</artifactId><optional>true</optional></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
         <dependency><groupId>org.springframework.security</groupId><artifactId>spring-security-test</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>com.h2database</groupId><artifactId>h2</artifactId><scope>test</scope></dependency>
         <dependency><groupId>org.testcontainers</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
         <dependency><groupId>org.testcontainers</groupId><artifactId>postgresql</artifactId><scope>test</scope></dependency>
     </dependencies>
@@ -48,6 +51,109 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.12</version>
+                <configuration>
+                    <destFile>${java.io.tmpdir}/healthgame-backend-jacoco.exec</destFile>
+                    <dataFile>${java.io.tmpdir}/healthgame-backend-jacoco.exec</dataFile>
+                    <outputDirectory>${project.build.directory}/site/jacoco</outputDirectory>
+                    <includes>
+                        <include>com/healthgame/backend/achievements/application/**</include>
+                        <include>com/healthgame/backend/challenges/application/**</include>
+                        <include>com/healthgame/backend/habits/application/**</include>
+                        <include>com/healthgame/backend/identity/application/AuthApplicationService.class</include>
+                        <include>com/healthgame/backend/notifications/application/**</include>
+                        <include>com/healthgame/backend/identity/infrastructure/security/JwtTokenService.class</include>
+                        <include>com/healthgame/backend/identity/infrastructure/security/TokenHashService.class</include>
+                        <include>com/healthgame/backend/shared/audit/AuditTrailService.class</include>
+                    </includes>
+                    <excludes>
+                        <exclude>**/*Request.class</exclude>
+                        <exclude>**/*Response.class</exclude>
+                        <exclude>**/*Event.class</exclude>
+                        <exclude>**/*$*.class</exclude>
+                        <exclude>com/healthgame/backend/challenges/application/ChallengeApplicationService.class</exclude>
+                        <exclude>com/healthgame/backend/challenges/application/ChallengeDetailsResponseBuilder.class</exclude>
+                        <exclude>com/healthgame/backend/habits/application/HabitCategoryApplicationService.class</exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>check-business-coverage</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.40</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>3.5.0</version>
+                <configuration>
+                    <configLocation>google_checks.xml</configLocation>
+                    <consoleOutput>true</consoleOutput>
+                    <failsOnError>false</failsOnError>
+                    <failOnViolation>false</failOnViolation>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>checkstyle-verify</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>4.8.6.6</version>
+                <configuration>
+                    <effort>Min</effort>
+                    <threshold>High</threshold>
+                    <failOnError>false</failOnError>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotbugs-verify</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

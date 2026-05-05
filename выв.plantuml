@@ -1,0 +1,48 @@
+@startuml
+title Выполнение привычки с начислением опыта, проверкой достижений и созданием уведомления
+
+actor "Пользователь" as User
+participant "Интерфейс кабинета\nи календаря привычек" as Frontend
+participant "Контроллер привычек" as HabitController
+participant "Сервис привычек" as HabitService
+participant "Сервис прогресса\nчелленджей" as ChallengeProgress
+participant "Сервис достижений" as AchievementService
+participant "Сервис уведомлений" as NotificationService
+database "База данных" as DB
+participant "Канал уведомлений" as NotificationChannel
+
+User -> Frontend: Нажимает «Отметить выполнение»
+Frontend -> HabitController: Отправляет запрос на выполнение привычки
+
+HabitController -> HabitService: Передает идентификаторы пользователя и привычки
+
+HabitService -> DB: Запрашивает привычку пользователя
+DB --> HabitService: Возвращает данные привычки
+
+HabitService -> DB: Сохраняет отметку выполнения привычки
+HabitService -> DB: Обновляет опыт пользователя
+
+HabitService -> ChallengeProgress: Передает данные для обновления челленджа
+ChallengeProgress -> DB: Обновляет прогресс участия в челлендже
+
+HabitService -> AchievementService: Запускает проверку достижений
+AchievementService -> DB: Получает показатели пользователя
+AchievementService -> DB: Проверяет уже полученные достижения
+
+alt Новое достижение найдено
+    AchievementService -> DB: Сохраняет запись о полученном достижении
+    AchievementService -> NotificationService: Передает данные нового достижения
+    NotificationService -> DB: Создает уведомление
+    NotificationService -> NotificationChannel: Передает событие о новом достижении
+else Новых достижений нет
+    AchievementService --> HabitService: Возвращает пустой список новых достижений
+end
+
+AchievementService --> HabitService: Возвращает результат проверки достижений
+HabitService --> HabitController: Возвращает результат выполнения привычки
+HabitController --> Frontend: Возвращает обновленный прогресс
+
+Frontend -> Frontend: Обновляет кабинет, опыт, серию и достижения
+Frontend --> User: Показывает уведомление о результате
+
+@enduml

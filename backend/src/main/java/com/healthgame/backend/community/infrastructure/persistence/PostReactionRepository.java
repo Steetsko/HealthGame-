@@ -10,5 +10,11 @@ public interface PostReactionRepository extends JpaRepository<PostReactionEntity
 
     List<PostReactionEntity> findByPostIdInAndUserId(List<Long> postIds, Long userId);
 
+    List<PostReactionEntity> findByPostIdIn(List<Long> postIds);
+
+    List<PostReactionEntity> findByPostId(Long postId);
+
     long countByPostId(Long postId);
+
+    long countByUserId(Long userId);
 }

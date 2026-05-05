@@ -31,6 +31,18 @@ public class CommentEntity {
     @Column(nullable = false, length = 1000)
     private String text;
 
+    @Column(name = "moderation_status", nullable = false, length = 16)
+    private String moderationStatus;
+
+    @Column(name = "moderated_by")
+    private Long moderatedBy;
+
+    @Column(name = "moderated_at")
+    private Instant moderatedAt;
+
+    @Column(name = "moderation_note", length = 500)
+    private String moderationNote;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -45,6 +57,14 @@ public class CommentEntity {
     public void setParentCommentId(Long parentCommentId) { this.parentCommentId = parentCommentId; }
     public String getText() { return text; }
     public void setText(String text) { this.text = text; }
+    public String getModerationStatus() { return moderationStatus; }
+    public void setModerationStatus(String moderationStatus) { this.moderationStatus = moderationStatus; }
+    public Long getModeratedBy() { return moderatedBy; }
+    public void setModeratedBy(Long moderatedBy) { this.moderatedBy = moderatedBy; }
+    public Instant getModeratedAt() { return moderatedAt; }
+    public void setModeratedAt(Instant moderatedAt) { this.moderatedAt = moderatedAt; }
+    public String getModerationNote() { return moderationNote; }
+    public void setModerationNote(String moderationNote) { this.moderationNote = moderationNote; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }
